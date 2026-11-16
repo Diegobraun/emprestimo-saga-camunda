@@ -1,0 +1,16 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: emprestimo-saga-camunda
+
+camunda:
+  client:
+    mode: selfManaged
+    grpc-address: http://localhost:26700
+    rest-address: http://localhost:8188
+
+app:
+  prazo-assinatura-padrao: PT2M
+  limite-por-cliente: 100000

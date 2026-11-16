@@ -1,0 +1,64 @@
+services:
+  orchestration:
+    image: camunda/camunda:8.8.35
+    container_name: emprestimo-camunda
+    ports:
+      - "26700:26500"
+      - "9700:9600"
+      - "8188:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9600 && echo -e \"GET /actuator/health/status HTTP/1.1\r\nHost: localhost\r\n\r\n\" >&3 && head -n 1 <&3 | grep -q 200'"]
+      interval: 2s
+      retries: 60
+      start_period: 30s
+    configs:
+      - source: orchestration-config
+        target: /usr/local/camunda/config/application.yaml
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.10
+    container_name: emprestimo-elasticsearch
+    ports:
+      - "9250:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cat/health | grep -qE 'green|yellow'"]
+      interval: 2s
+      retries: 60
+      start_period: 20s
+
+configs:
+  orchestration-config:
+    content: |
+      camunda:
+        system:
+          cpu-thread-count: "3"
+          io-thread-count: "3"
+        security:
+          authentication:
+            method: "basic"
+            unprotectedApi: true
+          authorizations:
+            enabled: false
+          initialization:
+            users:
+              - username: "demo"
+                password: "demo"
+                name: "Demo"
+                email: "demo@demo.com"
+            defaultRoles.admin.users:
+              - "demo"
+        database.index.numberOfReplicas: 0
+        data:
+          secondary-storage:
+            type: elasticsearch
+            elasticsearch:
+              cluster-name: docker-cluster
+              url: "http://elasticsearch:9200"
